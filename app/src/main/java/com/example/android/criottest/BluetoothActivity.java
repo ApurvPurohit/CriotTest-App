@@ -1,16 +1,26 @@
 package com.example.android.criottest;
 import android.app.Activity;
+import android.app.ProgressDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
+import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.text.Editable;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.EditText;
 import android.widget.Button;
+import android.widget.Toast;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -24,9 +34,13 @@ public class BluetoothActivity extends Activity
     BluetoothAdapter mBluetoothAdapter;
     BluetoothSocket mmSocket;
     BluetoothDevice mmDevice;
+    String ip_addr;
+    EditText ssid, pw;
     OutputStream mmOutputStream;
     InputStream mmInputStream;
     Thread workerThread;
+    private Button mScanBtn;
+    private ProgressDialog mProgressDlg;
     byte[] readBuffer;
     int readBufferPosition;
     int counter;
@@ -35,43 +49,60 @@ public class BluetoothActivity extends Activity
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
+        SQLiteDatabase mydatabase = openOrCreateDatabase("MYDB",MODE_PRIVATE,null);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bluetooth);
-
+        ssid = findViewById(R.id.editText3);
+        pw = findViewById(R.id.editText4);
         Button openButton = (Button)findViewById(R.id.open);
         Button sendButton = (Button)findViewById(R.id.send);
         Button closeButton = (Button)findViewById(R.id.close);
+        Button scnbtn = (Button)findViewById(R.id.button2);
+        Button addbtn = (Button)findViewById(R.id.button3);
         myLabel = (TextView)findViewById(R.id.label);
         myTextbox = (EditText)findViewById(R.id.entry);
         myTextbox.setHint("Enter data to be sent here");
+        //Add Button
 
-        //Open Button
-        openButton.setOnClickListener(new View.OnClickListener()
-        {
-            public void onClick(View v)
-            {
-                try
-                {
-                    findBT();
+        try {
+            findBT();
 
-                }
-                catch (IOException ex) { }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        addbtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mydatabase.execSQL("CREATE TABLE IF NOT EXISTS WiFiDetails(ssid VARCHAR,pass VARCHAR);");
+                mydatabase.execSQL("INSERT INTO WifiDetails VALUES('"+ssid.getText()+"','"+pw.getText()+"');");
+                Toast.makeText(getApplicationContext(),"Table Created!",Toast.LENGTH_LONG).show();
             }
         });
+        //Scan Button
+        scnbtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent x = new Intent(getApplicationContext(),QRCodeScanActivity.class);
+                String s = String.valueOf(ssid.getText());
+                String p = String.valueOf(pw.getText());
+                x.putExtra("SSID", s);
+                x.putExtra("PW", p);
 
-        //Send Button
-        sendButton.setOnClickListener(new View.OnClickListener()
-        {
-            public void onClick(View v)
-            {
-                try
-                {
+                startActivity(x);
+            }
+
+        });
+        sendButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
                     sendData();
+                } catch (IOException e) {
+                    e.printStackTrace();
                 }
-                catch (IOException ex) { }
             }
         });
-
         //Close button
         closeButton.setOnClickListener(new View.OnClickListener()
         {
@@ -84,6 +115,7 @@ public class BluetoothActivity extends Activity
                 catch (IOException ex) { }
             }
         });
+
     }
 
     void findBT() throws IOException {
@@ -131,6 +163,7 @@ public class BluetoothActivity extends Activity
 
         myLabel.setText("Connected to CRIOT-PI");
         myLabel.setTextColor(Color.parseColor("#228B22"));
+
     }
 
     void beginListenForData()
@@ -192,10 +225,24 @@ public class BluetoothActivity extends Activity
 
     void sendData() throws IOException
     {
-        String msg = myTextbox.getText().toString();
-        msg += "\n";
-        mmOutputStream.write(msg.getBytes());
-        myLabel.setText("Data Sent");
+//        String tf = getIntent().getStringExtra("response");
+        String tf = "success";
+        WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifiInfo;
+        wifiInfo = wifiManager.getConnectionInfo();
+        String k = getIntent().getStringExtra("key");
+        String iv = getIntent().getStringExtra("iv");
+        if(tf.equals("success"))
+       { String msg = "CRIOT-PI:"+ssid.getText()+":"+pw.getText()+":"+String.valueOf(wifiInfo.getIpAddress())+":"+k+":"+iv;
+           Toast.makeText(getApplicationContext(),msg,Toast.LENGTH_LONG).show();
+//        mmOutputStream.write(msg.getBytes());
+            myLabel.setText("Data Sent");
+           myLabel.setTextColor(Color.parseColor("#228B22"));}
+        else
+        {
+            Toast.makeText(getApplicationContext(),"Error in Response Code",Toast.LENGTH_LONG).show();
+            myLabel.setText("Error! Data Not Sent");
+        }
     }
 
     void closeBT() throws IOException

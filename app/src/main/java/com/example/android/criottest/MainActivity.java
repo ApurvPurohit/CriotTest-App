@@ -36,6 +36,8 @@ public class MainActivity extends AppCompatActivity {
 
     TextView LatLong, BattPer, WifiName, WifiSSID;
     Button ble;
+    WifiManager wifiManager;
+
     FusedLocationProviderClient fusedLocationProviderClient;
     private BroadcastReceiver mBatInfoReceiver = new BroadcastReceiver(){
         @Override
@@ -54,22 +56,25 @@ public class MainActivity extends AppCompatActivity {
         this.registerReceiver(this.mBatInfoReceiver, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         LatLong = findViewById(R.id.locationTextView);
         BattPer = findViewById(R.id.batteryTextView);
+        wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+
         WifiName = findViewById(R.id.WifiNameTextView);
         WifiSSID = findViewById(R.id.SSIDTextView);
         ble = findViewById(R.id.button);
         ble.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                WifiInfo wifiInfo;
+                wifiInfo = wifiManager.getConnectionInfo();
                 Intent i = new Intent(MainActivity.this,BluetoothActivity.class);
+                i.putExtra("IP_ADDR", String.valueOf(wifiInfo.getIpAddress()));
                 startActivity(i);
             }
         });
 
-        WifiManager wifiManager = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        WifiInfo wifiInfo;
-
         if(wifiManager != null)
-        {wifiInfo = wifiManager.getConnectionInfo();
+        {   WifiInfo wifiInfo;
+            wifiInfo = wifiManager.getConnectionInfo();
         if (wifiInfo.getSupplicantState() == SupplicantState.COMPLETED) {
             WifiSSID.setText("SSID: "+wifiInfo.getSSID());
             WifiName.setText("IP Address: "+String.valueOf(wifiInfo.getIpAddress()));
